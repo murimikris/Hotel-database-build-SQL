@@ -1,3 +1,4 @@
+--Create members table:
 
 create table members(
 id varchar(255),
@@ -7,8 +8,12 @@ member_since timestamp NOT NULL default now(),
 payment_due decimal (6,2) not null default 0
 );
 
+--Add primary key:
+
 alter table members
 add primary key (id);
+
+--Create table for pending terminations:
 
 create table pending_terminations(
 id varchar(255),
@@ -16,7 +21,8 @@ email varchar(255) not null,
 request_date timestamp not null default now(),
 payment_due decimal (6,2) not null default 0
 );
-use sports_bookings;
+
+--Create table for rooms info:
 
 create table rooms(
 id varchar(255) unique primary key,
@@ -24,8 +30,12 @@ room_type varchar(255) not null,
 price decimal (6,2) not null
 );
 
+--Add primary key to pending_terminations table:
+
 alter table pending_terminations
 add primary key (id);
+
+--Create a table for bookings info:
 
 create table bookings(
 id int auto_increment primary key,
@@ -38,6 +48,9 @@ payment_status varchar(255) not null default 'Unpaid',
 constraint uc1 unique (room_id, booked_date, booked_time)
 );
 
+--Add foreign keys to the bookings table:
+--If records in the parent table are updated or deleted, the record in the child table should be changed accordingly.
+
 alter table bookings
 add constraint fk1
 foreign key (member_id) references members(id)
@@ -47,8 +60,7 @@ alter table bookings
 add constraint fk2
 foreign key (room_id) references rooms(id) on delete cascade on update cascade;
 
-use sports_bookings;
-
+--Add data to the tables:
 
 insert into members (id, password, email, member_since, payment_due)
 values 
@@ -87,42 +99,49 @@ values
 (10, 'B2', '2018-06-12', '15:00:00', 'bba_hringer', '2018-05-30 14:40:23', 'Paid');
 
 
-#create a view that shows booking details of a booking
+--Create a view that shows booking details of a booking:
+--The view ensures sensitive info is not disclosed (passwords).
+
 create view member_bookings as
 select bookings.id, room_id, room_type, booked_date, booked_time, member_id, datetime_of_booking, price, payment_status
 from bookings join rooms
 on bookings.room_id = rooms.id
 order by bookings.id;
 
-use sports_bookings;
 
-#create procedures for the database.
+--Create procedures for the database:
+
 DELIMITER $$
-#INSERT NEW NUMBER
-create procedure insert_new_number (in p_id varchar(255),in p_password varchar(255), in p_email varchar(255))
+--Insert new member:
+
+create procedure insert_new_member (in p_id varchar(255),in p_password varchar(255), in p_email varchar(255))
 begin 
 	insert into members(id, password, email) values (p_id, p_password, p_email);
 end $$
 
-#delete number
-create procedure delete_number (in p_id varchar(255))
+--Delete member:
+
+create procedure delete_member (in p_id varchar(255))
 begin
 	delete from members where id = p_id;
 end $$
 
-#update passwords
+--Update passwords:
+
 create procedure update_member_password (in p_id varchar(255), in p_password varchar(255))
 begin
 	update members set password = p_password where id = p_id;
 end$$
 
-#update emails
+--Update emails:
+
 create procedure update_member_email (in p_id varchar(255), in p_email varchar(255))
 begin
 	update members set email = p_email where id = p_id;
 end $$
 
-# boooking procedure
+--Boooking procedure:
+
 create procedure make_booking (in p_room_id varchar(255), in p_booked_date date, in p_booked_time timestamp, p_member_id varchar(255))
 begin
 	declare v_price decimal(6, 2);
@@ -133,10 +152,11 @@ begin
     update members set payment_due = payment_due + v_payment_due where id = p_member_id;
     end$$
 
-#update payments
+--Update payments:
+
 create procedure update_payments (in p_id varchar(255))
 begin
-	declare v_member_id varchar(255);
+    declare v_member_id varchar(255);
     declare v_payment_due decimal(6, 2);
     declare v_price decimal(6,2);
     update bookings set payment_status = 'Paid' where id = p_id;
@@ -145,25 +165,27 @@ begin
     update members set payment_due = v_payment_due - v_price where id = v_member_id;
 end $$
 
-# view bookings
+--View bookings:
+
 create procedure view_bookings (in p_id varchar(255))
 begin
 	select * from member_bookings where id = p_id;
 end $$
 
-use sports_bookings
+--Search room:
 
-# search room
 delimiter $$
 
 create procedure search_room (in p_room_type varchar(255), p_booked_date date, p_booked_time time)
 begin
 	select *
     from rooms
-    where id not in (select room_id from bookings where booked_date = p_booked_date and booked_time= p_booked_time and payment_status != 'Cancelled') and room_type = p_room_type;
+    where id not in (select room_id from bookings where booked_date = p_booked_date and booked_time= p_booked_time and payment_status != 'Cancelled')
+    and room_type = p_room_type;
     end $$
     
-#cancel booking
+--Cancel booking:
+
 create procedure cancel_booking (in p_booking_id int, out p_message varchar(255))
 begin
 	DECLARE v_cancellation INT;
@@ -202,8 +224,9 @@ begin
 end $$
 
 
-# Triggers
-# payment check
+-- Create Triggers:
+
+--Payment check:
 
 create trigger payment_check before delete on members for each row
 begin
@@ -215,7 +238,7 @@ begin
 	END IF;
 end $$
 
-# create a function that checks cancellations against member id
+--Create a function that checks cancellations against member id:
 
 create function check_cancellation (p_booking_id int) returns int deterministic
 begin
@@ -243,13 +266,5 @@ begin
 end $$
 
 DELIMITER ;
-
-        
-        
-        
-
-
-    
-
 
 	
